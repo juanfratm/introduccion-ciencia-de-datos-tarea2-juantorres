@@ -1,0 +1,530 @@
+#ASIGNACIÓN 2 parte (i)
+
+#id:7-7--7 
+
+import matplotlib.pyplot as plt
+import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D
+from sklearn.model_selection import train_test_split  
+
+
+#Cargamos los datos del archivo: week3
+
+data = pd.read_csv('C:/Users/HP/Documents/ASIGNACIÓN 2 INTRODUCCION A CIENCIA DE DATOS/week3.csv')
+
+X = data.iloc[:, :2].values  # Seleccionamos las dos primeras columnas como nuestras características
+Y = data.iloc[:, 2].values   # Seleccionamos la tercera columna como la Variable Objetivo
+
+#Como nos piden ver la tendencia de los datos de entrenamiento, dividimos los datos en entrenamiento y prueba
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+# Graficamos los datos de entrenamiento en un gráfico de dispersión 3D
+fig = plt.figure(figsize = (10, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+ax.scatter(X_train[:, 0], X_train[:, 1], Y_train)
+
+ax.set_xlabel('Característica 1')
+ax.set_ylabel('Característica 2')
+ax.set_zlabel('Objetivo')
+
+plt.show()
+
+#Características Polinómicas Adicionales
+
+from sklearn.preprocessing import PolynomialFeatures #Utilizaremos la función PolynomialFeatures de sklearn 
+
+# Usamos PolynomialFeatures para generar características hasta grado 5
+poly = PolynomialFeatures(degree=5)
+
+# Definimos cuales son nuestras características en el dataframe
+X = data[['X1', 'X2']]
+
+# Transformamos X, para así poder generar y agregar las características polinómicas
+X_poly = poly.fit_transform(X)
+
+# Imprimimos nuestras nuevas características polinómicas
+print(f"Características polinómicas:\n{poly.get_feature_names_out(['X1', 'X2'])}\n")
+print(X_poly[:5])  # Mostramos las primeras cinco filas
+
+print(f"Original columns: {X.shape[1]}, New columns: {X_poly.shape[1]}")
+
+#Entrenamos el modelo de regresión Lasso con estas características y varios valores de C
+
+from sklearn.linear_model import Lasso
+
+#Definimos nuestro rango de valores de C
+#Quise iniciar con valores muy bajos de C y los fui aumentando poco a poco
+C_values = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000]
+
+#Para trabajar el modelo de regresión Lasso, debemos convertir los valores de C a alpha (alpha = 1/C)
+
+alpha_values = [1/c for c in C_values]
+
+#Para los modelos de regresión de Lasso, el valor C y el valor de alpha (α) son inversamente proporcionales.
+#Entonces, si C disminuye, α aumenta, y si C aumenta, α disminuye.
+
+# Entrenamos un modelo para cada valor de C
+for alpha, C in zip(alpha_values, C_values):
+
+    # Creamos el modelo Lasso con el valor de alpha correspondiente
+    model = Lasso(alpha=alpha, max_iter=10000)  
+    # Con max_iter ajustamos el número máximo de iteraciones a 10,000.
+    #De esta manera, nos aseguramos que el algoritmo tenga suficiente tiempo para encontrar la mejor solución
+    
+    # Entrenamos el modelo con las características polinómicas y la variable objetivo
+    model.fit(X_poly, data['Y'])
+    
+    # Imprimimos los coeficientes que obtuvimos para el modelo
+    print(f"\nResultados para C = {C} (alpha = {alpha}):")
+    for coef, feature in zip(model.coef_, poly.get_feature_names_out()):
+        print(f"{feature}: {coef}")
+
+
+import numpy as np
+
+#Primero, creamos un conjunto de 50 valores entre -5 y 5. 
+#Usamos el rango de -5 a 5 para cubrir los posibles valores de las características.
+grid = np.linspace(-5, 5, 50)
+
+X_test = [] 
+# Creamos una lista vacía donde vamos a almacenar todas las combinaciones de los valores de las características.
+
+#Generamos dos bucles: El primero toma un valor i del conjunto de datos grid. El segundo, toma un valor j.
+for i in grid:
+    for j in grid:
+        X_test.append([i, j]) 
+        #Cada par de valores (i, j), los colocamos juntos en una lista [i, j] y los añadimos a X_test usando append().
+
+X_test = np.array(X_test)
+#Convertimos la lista X_test en un arreglo de numpy usando np.array(), para poder hacer predicciones usando los valores de la lista.
+
+#Veamos las primeras 5 filas de la cuadrícula
+print(X_test[:5])
+
+#GENERAR CARACTERISTICAS POLINOMICAS PARA LA CUADRICULA
+
+# Generamos las características polinómicas para el conjunto X_test
+poly = PolynomialFeatures(degree=5)
+Xtest_poly = poly.fit_transform(X_test)
+
+# Obtenemos los nombres de las características polinómicas generadas por PolynomialFeatures
+feature_names = poly.get_feature_names_out(['X1', 'X2'])
+
+# Creamos el DataFrame usando los nombres de las características polinómicas
+Xtest_poly_df = pd.DataFrame(Xtest_poly, columns=feature_names)
+
+# Mostramos las primeras filas del DataFrame resultante
+print(Xtest_poly_df.head())
+
+# PREDICCIONES
+
+# Anteriormente, se generaron varios modelos, utilizando diferentes valores de C. 
+# Vamos a generar las predicciones para los modelos donde C=1, C=10, C=100 y C=1000
+
+C_values = [1, 10, 100, 1000]
+
+# Convertimos los valores de C a alpha
+alpha_values = [1/c for c in C_values]
+
+# Aquí almacenamos las predicciones
+predictions = {}
+
+# Obtenemos los nombres de las características polinómicas
+feature_names = poly.get_feature_names_out(['X1', 'X2'])
+
+# Convertimos X_poly a un DataFrame, usando los nombres de las características
+X_poly_df = pd.DataFrame(X_poly, columns=feature_names)
+
+# Creamos un modelo Lasso para cada valor de C
+for alpha, C in zip(alpha_values, C_values):
+    
+    # Creamos el modelo Lasso
+    model = Lasso(alpha=alpha, max_iter=10000)
+    
+    # Entrenamos cada modelo con las características polinómicas y la variable objetivo
+    model.fit(X_poly_df, data['Y'])
+    
+    # Realizamos predicciones sobre el conjunto de prueba polinómico
+    y_pred = model.predict(Xtest_poly_df)
+    
+    # Guardamos las predicciones
+    predictions[f'Predicciones para C={C}'] = y_pred
+    
+    # Imprimimos algunas predicciones para ver los resultados
+    print(f"\nPredicciones para C = {C} (alpha = {alpha}):")
+    print(y_pred[:5])  # Mostramos las primeras 5 predicciones
+
+# Crear la figura y el gráfico 3D
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+# Definimos los colores para los diferentes modelos: C=1, C=10, C=100 y C=1000
+colors = {1: 'blue', 10: 'red', 100: 'yellow', 1000: 'green'}
+
+# Necesitamos crear una malla de puntos para graficar las superficies
+X1 = np.linspace(X_test[:, 0].min(), X_test[:, 0].max(), 50)
+X2 = np.linspace(X_test[:, 1].min(), X_test[:, 1].max(), 50)
+X1, X2 = np.meshgrid(X1, X2)
+
+# Ajustamos las predicciones al tamaño de la malla para su uso en plot_surface
+from scipy.interpolate import griddata
+# Creamos un array con las coordenadas de los puntos originales para la interpolación
+points = np.column_stack((X_test[:, 0], X_test[:, 1]))
+
+# Graficamos las predicciones de cada modelo como superficies
+for C in [1, 10, 100, 1000]:
+    # Interpolamos los datos al grid
+    y_pred = griddata(points, predictions[f'Predicciones para C={C}'], (X1, X2), method='cubic')
+    ax.plot_surface(X1, X2, y_pred, color=colors[C], label=f'Predicciones para C={C}', alpha=0.4)
+
+# Graficamos los datos de entrenamiento originales como puntos para contraste
+ax.scatter(X_train[:, 0], X_train[:, 1], Y_train, color='black', label='Datos de Entrenamiento', s=50)
+
+#### ELEMENTOS DEL GRÁFICO
+
+# Nombres de los ejes
+ax.set_xlabel('Característica 1 (X1)')  # Eje X
+ax.set_ylabel('Característica 2 (X2)')  # Eje Y
+ax.set_zlabel('Variable Objetivo (Y)')  # Eje Z
+
+# Título del gráfico
+ax.set_title('Predicciones Lasso para diferentes valores de C')
+
+# Agregar leyenda para clarificar el gráfico
+ax.legend()
+
+# Mostrar el gráfico
+plt.show()
+
+
+#APARTADOS B Y C, CON UN MODELO DE REGRESIÓN RIDGE
+
+from sklearn.linear_model import Ridge
+
+#Apartado (b): Características Polinómicas y Entrenamiento de Modelos Ridge
+
+#Características Polinómicas
+
+poly = PolynomialFeatures(degree=5)
+X = data[['X1', 'X2']]  # Seleccionamos las características
+X_poly = poly.fit_transform(X)  # Transformación polinómica
+
+# Imprimimos las características polinómicas generadas
+print(f"Características polinómicas:\n{poly.get_feature_names_out(['X1', 'X2'])}\n")
+print(X_poly[:5])
+print(f"Original columns: {X.shape[1]}, New columns: {X_poly.shape[1]}")
+
+
+# Entrenamiento del modelo Ridge con varios valores de C
+C_values = [0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000]
+alpha_values = [1/c for c in C_values]  # Conversión de C a alpha
+
+# Entrenamos un modelo Ridge para cada valor de C
+for alpha, C in zip(alpha_values, C_values):
+    model = Ridge(alpha=alpha, max_iter=10000)
+    model.fit(X_poly, data['Y'])  # Entrenamiento del modelo
+    print(f"\nResultados para C = {C} (alpha = {alpha}):")
+    for coef, feature in zip(model.coef_, poly.get_feature_names_out()):
+        print(f"{feature}: {coef}")
+
+#Apartado (c): Generación Predicciones con Ridge
+
+#CREACIÓN DE LA CUADÍCULA
+import numpy as np
+
+#Primero, creamos un conjunto de 50 valores entre -5 y 5. 
+#Usamos el rango de -5 a 5 para cubrir los posibles valores de las características.
+grid = np.linspace(-5, 5, 50)
+
+X_test = [] 
+# Creamos una lista vacía donde vamos a almacenar todas las combinaciones de los valores de las características.
+
+#Generamos dos bucles: El primero toma un valor i del conjunto de datos grid. El segundo, toma un valor j.
+for i in grid:
+    for j in grid:
+        X_test.append([i, j]) 
+        #Cada par de valores (i, j), los colocamos juntos en una lista [i, j] y los añadimos a X_test usando append().
+
+X_test = np.array(X_test)
+#Convertimos la lista X_test en un arreglo de numpy usando np.array(), para poder hacer predicciones usando los valores de la lista.
+
+#Veamos las primeras 5 filas de la cuadrícula
+print(X_test[:5])
+
+#GENERAR CARACTERISTICAS POLINOMICAS PARA LA CUADRICULA
+
+# Generamos las características polinómicas para el conjunto X_test
+poly = PolynomialFeatures(degree=5)
+Xtest_poly = poly.fit_transform(X_test)
+
+# Obtenemos los nombres de las características polinómicas generadas por PolynomialFeatures
+feature_names = poly.get_feature_names_out(['X1', 'X2'])
+
+# Creamos el DataFrame usando los nombres de las características polinómicas
+Xtest_poly_df = pd.DataFrame(Xtest_poly, columns=feature_names)
+
+# Mostramos las primeras filas del DataFrame resultante
+print(Xtest_poly_df.head())
+
+# PREDICCIONES
+
+# Anteriormente, se generaron varios modelos, utilizando diferentes valores de C. 
+# Para mantener la consistencia con el modelo Lasso, y así poder comparar los resultados
+#Vamos a generar las predicciones para los modelos donde C=1, C=10, C=100 y C=1000
+
+C_values = [1, 10, 100, 1000]
+
+# Convertimos los valores de C a alpha
+alpha_values = [1/c for c in C_values]
+
+# Aquí almacenamos las predicciones
+predictions = {}
+
+# Obtenemos los nombres de las características polinómicas
+feature_names = poly.get_feature_names_out(['X1', 'X2'])
+
+# Convertimos X_poly a un DataFrame, usando los nombres de las características
+X_poly_df = pd.DataFrame(X_poly, columns=feature_names)
+
+# Creamos un modelo Ridge para cada valor de C
+for alpha, C in zip(alpha_values, C_values):
+    
+    # Creamos el modelo Ridge
+    model = Ridge(alpha=alpha, max_iter=10000)
+    
+    # Entrenamos cada modelo con las características polinómicas y la variable objetivo
+    model.fit(X_poly_df, data['Y'])
+    
+    # Realizamos predicciones sobre el conjunto de prueba polinómico
+    y_pred = model.predict(Xtest_poly_df)
+    
+    # Guardamos las predicciones
+    predictions[f'Predicciones para C={C}'] = y_pred
+    
+    # Imprimimos algunas predicciones para ver los resultados
+    print(f"\nPredicciones para C = {C} (alpha = {alpha}):")
+    print(y_pred[:5])  # Mostramos las primeras 5 predicciones
+
+
+#GRÁFICA DE LAS PREDICCIONES DE RIDGE
+
+# Crear la figura y el gráfico 3D
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+# Definimos los colores para los diferentes modelos: C=1, C=10, C=100 y C=1000
+colors = {1: 'blue', 10: 'red', 100: 'yellow', 1000: 'green'}
+
+# Necesitamos crear una malla de puntos para graficar las superficies
+X1 = np.linspace(X_test[:, 0].min(), X_test[:, 0].max(), 50)
+X2 = np.linspace(X_test[:, 1].min(), X_test[:, 1].max(), 50)
+X1, X2 = np.meshgrid(X1, X2)
+
+# Ajustamos las predicciones al tamaño de la malla para su uso en plot_surface
+from scipy.interpolate import griddata
+# Creamos un array con las coordenadas de los puntos originales para la interpolación
+points = np.column_stack((X_test[:, 0], X_test[:, 1]))
+
+# Graficamos las predicciones de cada modelo como superficies
+for C in [1, 10, 100, 1000]:
+    # Interpolamos los datos al grid
+    y_pred = griddata(points, predictions[f'Predicciones para C={C}'], (X1, X2), method='cubic')
+    ax.plot_surface(X1, X2, y_pred, color=colors[C], label=f'Predicciones para C={C}', alpha=0.4)
+
+# Graficamos los datos de entrenamiento originales como puntos para contraste
+ax.scatter(X_train[:, 0], X_train[:, 1], Y_train, color='black', label='Datos de Entrenamiento', s=50)
+
+#### ELEMENTOS DEL GRÁFICO
+
+# Nombres de los ejes
+ax.set_xlabel('Característica 1 (X1)')  # Eje X
+ax.set_ylabel('Característica 2 (X2)')  # Eje Y
+ax.set_zlabel('Variable Objetivo (Y)')  # Eje Z
+
+# Título del gráfico
+ax.set_title('Predicciones Ridge para diferentes valores de C')
+
+# Agregar leyenda para clarificar el gráfico
+ax.legend()
+
+# Mostrar el gráfico
+plt.show()
+
+
+#ASIGNACION 2 parte (ii)
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import Lasso
+from sklearn.model_selection import cross_validate
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import Ridge
+
+#Cargamos los datos del archivo: week3
+
+data = pd.read_csv('C:/Users/HP/Documents/ASIGNACIÓN 2 INTRODUCCION A CIENCIA DE DATOS/week3.csv')
+
+X = data.iloc[:, :2].values  # Seleccionamos las dos primeras columnas como nuestras características
+Y = data.iloc[:, 2].values   # Seleccionamos la tercera columna como la Variable Objetivo
+
+#Dividimos los datos en entrenamiento y prueba
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+print(data.head())
+
+#Características Polinómicas Adicionales
+
+from sklearn.preprocessing import PolynomialFeatures #Utilizaremos la función PolynomialFeatures de sklearn 
+
+# Usamos PolynomialFeatures para generar características hasta grado 5
+poly = PolynomialFeatures(degree=5)
+
+# Definimos cuales son nuestras características en el dataframe
+X = data[['X1', 'X2']]
+
+# Transformamos X, para así poder generar y agregar las características polinómicas
+X_poly = poly.fit_transform(X)
+
+# Imprimimos nuestras nuevas características polinómicas
+print(f"Características polinómicas:\n{poly.get_feature_names_out(['X1', 'X2'])}\n")
+print(X_poly[:5])  # Mostramos las primeras cinco filas
+
+print(f"Original columns: {X.shape[1]}, New columns: {X_poly.shape[1]}")
+
+#Usamos el mismo modelos de regresión de Lasso con características polinómicas que desarrollamos en (i)
+
+
+#Definimos nuestro rango de valores de C
+C_values = [1, 10, 100, 1000]
+
+#Para trabajar el modelo de regresión Lasso, debemos convertir los valores de C a alpha (alpha = 1/C)
+
+alpha_values = [1/c for c in C_values]
+
+#Para los modelos de regresión de Lasso, el valor C y el valor de alpha (α) son inversamente proporcionales.
+#Entonces, si C disminuye, α aumenta, y si C aumenta, α disminuye.
+
+# Entrenamos un modelo para cada valor de C
+for alpha, C in zip(alpha_values, C_values):
+
+    # Creamos el modelo Lasso con el valor de alpha correspondiente
+    model = Lasso(alpha=alpha, max_iter=10000)
+    param_grid = {'alpha': alpha_values}
+
+# Entrenamos el modelo con las características polinómicas y la variable objetivo
+    model.fit(X_poly, data['Y'])
+    
+    # Imprimimos los coeficientes que obtuvimos para el modelo
+    print(f"\nResultados para C = {C} (alpha = {alpha}):")
+    for coef, feature in zip(model.coef_, poly.get_feature_names_out()):
+        print(f"{feature}: {coef}")
+
+#APARTADOS A Y B (LASSO)
+
+#Usando el modelo Lasso con características polinómicas, ahora utilizaremos validación cruzada para seleccionar C.
+
+#(a) Usa validación cruzada de 5 particiones para graficar el promedio y la desviación estándar del error de predicción frente a C. 
+#Usa la función errorbar de matplotlib para esto. Necesitarás elegir el rango de valores de C para graficar, justifica tu elección.
+
+# Usamos los mismos valores de C con los que entrenamos el modelo Lasso
+C_values = [1, 10, 100, 1000]
+alpha_values = [1 / c for c in C_values]
+
+# Calculamos el MSE usando validación cruzada de 5 particiones
+mse_means = []
+mse_stds = []
+for alpha in alpha_values:
+    model.alpha = alpha  # Actualiza el valor de alpha en el modelo existente
+    results = cross_validate(model, X_poly, Y, scoring='neg_mean_squared_error', cv=5, return_train_score=False)
+    mse_scores = -results['test_score']  # Convertimos los scores a positivos
+    mse_means.append(np.mean(mse_scores))
+    mse_stds.append(np.std(mse_scores))
+
+# Graficamos el promedio y la desviación estándar del error de predicción frente a C usando errorbar
+plt.errorbar(C_values, mse_means, yerr=mse_stds, fmt='o', markersize=8, elinewidth=2, capsize=5, capthick=2)
+plt.xscale('log')
+plt.xlabel('C (1/alpha)')
+plt.ylabel('Mean Squared Error')
+plt.title('Validación Cruzada de Lasso: MSE vs C')
+plt.grid(True)
+plt.show()
+
+# Resultados de la validación cruzada para cada C
+print("Resultados detallados de la validación cruzada para cada C:")
+for C, mean, std in zip(C_values, mse_means, mse_stds):
+    print(f"C = {C}: MSE medio = {mean:.4f}, Desviación estándar = {std:.4f}")
+
+# El mejor valor de alpha y C
+best_index = np.argmin(mse_means)  # Índice del menor MSE medio
+best_alpha = alpha_values[best_index]
+best_C = 1 / best_alpha
+print(f"El valor óptimo de alpha es: {best_alpha:.4f}, correspondiente a C = {best_C:.4f}")
+
+#APARTADO C
+
+#Características Polinómicas y Entrenamiento de Modelos Ridge
+
+#Características Polinómicas
+
+poly = PolynomialFeatures(degree=5)
+X = data[['X1', 'X2']]  # Seleccionamos las características
+X_poly = poly.fit_transform(X)  # Transformación polinómica
+
+# Imprimimos las características polinómicas generadas
+print(f"Características polinómicas:\n{poly.get_feature_names_out(['X1', 'X2'])}\n")
+print(X_poly[:5])
+print(f"Original columns: {X.shape[1]}, New columns: {X_poly.shape[1]}")
+
+# Entrenamiento del modelo Ridge con varios valores de C
+C_values = [1, 10, 100, 1000]
+alpha_values = [1/c for c in C_values]  # Conversión de C a alpha
+
+# Entrenamos un modelo Ridge para cada valor de C
+for alpha, C in zip(alpha_values, C_values):
+    model = Ridge(alpha=alpha, max_iter=10000)
+    model.fit(X_poly, data['Y'])  # Entrenamiento del modelo
+    print(f"\nResultados para C = {C} (alpha = {alpha}):")
+    for coef, feature in zip(model.coef_, poly.get_feature_names_out()):
+        print(f"{feature}: {coef}")
+
+# Usamos los mismos valores de C con los que entrenamos el modelo
+C_values = [1, 10, 100, 1000]
+alpha_values = [1 / c for c in C_values]  
+
+# Modelo Ridge
+model = Ridge(max_iter=10000)  # Se establece un número alto de iteraciones para asegurar la convergencia
+
+# Calculamos el MSE usando validación cruzada de 5 particiones
+mse_means = []
+mse_stds = []
+for alpha in alpha_values:
+    model.alpha = alpha  # Actualiza el valor de alpha en el modelo existente
+    results = cross_validate(model, X_poly, Y, scoring='neg_mean_squared_error', cv=5, return_train_score=False)
+    mse_scores = -results['test_score']  # Convertimos los scores a positivos
+    mse_means.append(np.mean(mse_scores))
+    mse_stds.append(np.std(mse_scores))
+
+# Graficamos el promedio y la desviación estándar del error de predicción frente a C usando errorbar
+plt.errorbar(C_values, mse_means, yerr=mse_stds, fmt='o', markersize=8, elinewidth=2, capsize=5, capthick=2, color='red')
+plt.xscale('log')
+plt.xlabel('C (1/alpha)')
+plt.ylabel('Mean Squared Error')
+plt.title('Validación Cruzada de Ridge: MSE vs C')
+plt.grid(True)
+plt.show()
+
+# Resultados de la validación cruzada para cada C
+print("Resultados detallados de la validación cruzada para cada C:")
+for C, mean, std in zip(C_values, mse_means, mse_stds):
+    print(f"C = {C}: MSE medio = {mean:.4f}, Desviación estándar = {std:.4f}")
+
+# El mejor valor de alpha y C
+best_index = np.argmin(mse_means)  # Índice del menor MSE medio
+best_alpha = alpha_values[best_index]
+best_C = 1 / best_alpha
+print(f"El valor óptimo de alpha es: {best_alpha:.4f}, correspondiente a C = {best_C:.4f}")
